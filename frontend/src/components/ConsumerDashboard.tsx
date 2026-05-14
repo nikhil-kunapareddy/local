@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { clearSession, getSession } from "@/lib/auth";
 import { getApiBase } from "@/lib/api";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -22,9 +22,37 @@ export function ConsumerDashboard() {
     router.push("/login");
   }
 
+  async function getCurrentLocation(): Promise<{ lat: number; lng: number }> {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("Geolocation is not supported by this browser."));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            lat: Number(position.coords.latitude.toFixed(6)),
+            lng: Number(position.coords.longitude.toFixed(6)),
+          });
+        },
+        (error) => {
+          reject(new Error(error.message || "Failed to get current location."));
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 120000 },
+      );
+    });
+  }
+
   async function loadSummary() {
     try {
-      const res = await fetch(`${getApiBase()}/api/summary/consumer`);
+      const current = await getCurrentLocation();
+      const lat = current.lat;
+      const lng = current.lng;
+
+      const url = `${getApiBase()}/api/summary/consumer?lat=${lat}&lng=${lng}`;
+      console.log("[ConsumerDashboard] Querying summary", { lat, lng, url });
+
+      const res = await fetch(url);
       if (!res.ok) throw new Error(String(res.status));
       const data = (await res.json()) as {
         composite_score: number;
@@ -32,6 +60,7 @@ export function ConsumerDashboard() {
         air_operational_pct: number;
         other_pct: number;
       };
+      console.log("[ConsumerDashboard] Summary response", data);
       setComposite(data.composite_score);
       const f = (data.flood_pct / 100) * 360;
       const a = (data.air_operational_pct / 100) * 360;
@@ -40,11 +69,19 @@ export function ConsumerDashboard() {
       setDonutBg(
         `conic-gradient(var(--green-deep) 0deg ${f}deg, var(--red-alert) ${startA}deg ${startA + a}deg, #c4c4bc ${startO}deg 360deg)`,
       );
-      setToast({ msg: "Loaded summary from FastAPI `/api/summary/consumer`.", error: false });
-    } catch {
-      setToast({ msg: "Backend unavailable; showing static composite score.", error: true });
+      setToast({ msg: `Loaded summary for ${lat.toFixed(4)}, ${lng.toFixed(4)}.`, error: false });
+    } catch (error) {
+      console.error("[ConsumerDashboard] Failed to load location-based summary", error);
+      setToast({
+        msg: "Unable to use current location. Please allow location access and try again.",
+        error: true,
+      });
     }
   }
+
+  useEffect(() => {
+    void loadSummary();
+  }, []);
 
   function analyze() {
     const input = document.getElementById("asset-address") as HTMLInputElement | null;
@@ -123,7 +160,7 @@ export function ConsumerDashboard() {
               </div>
               <div className="toolbar">
                 <button className="btn btn-secondary btn-sm" type="button" onClick={loadSummary}>
-                  Load demo summary
+                  Load summary (current location)
                 </button>
                 <button className="btn btn-secondary btn-sm" type="button" onClick={signOut}>
                   Sign out

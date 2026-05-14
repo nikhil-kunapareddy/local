@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { clearSession, getSession } from "@/lib/auth";
 import { getApiBase } from "@/lib/api";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -20,10 +20,57 @@ export function BusinessDashboard() {
   const router = useRouter();
   const username = getSession()?.username ?? "";
   const [toast, setToast] = useState<{ msg: string; error: boolean } | null>(null);
+  const [metrics, setMetrics] = useState({
+    risk_tier: "Critical",
+    properties_at_risk_pct: 42.5,
+    flood_zone_pct: 18.2,
+    infra_stress_score: 7.8,
+    rate_increase_5y_pct: 114,
+    carriers_reducing: { count: 12, of: 18 },
+  });
 
   function signOut() {
     clearSession();
     router.push("/login");
+  }
+
+  async function getCurrentLocation(): Promise<{ lat: number; lng: number }> {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("Geolocation is not supported by this browser."));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            lat: Number(position.coords.latitude.toFixed(6)),
+            lng: Number(position.coords.longitude.toFixed(6)),
+          });
+        },
+        (error) => reject(new Error(error.message || "Failed to get current location.")),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 120000 },
+      );
+    });
+  }
+
+  async function loadBusinessSummary() {
+    try {
+      const { lat, lng } = await getCurrentLocation();
+      const url = `${getApiBase()}/api/summary/business?lat=${lat}&lng=${lng}`;
+      console.log("[BusinessDashboard] Querying summary", { lat, lng, url });
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(String(res.status));
+      const data = (await res.json()) as typeof metrics;
+      console.log("[BusinessDashboard] Summary response", data);
+      setMetrics(data);
+      setToast({ msg: `Loaded business summary for ${lat.toFixed(4)}, ${lng.toFixed(4)}.`, error: false });
+    } catch (error) {
+      console.error("[BusinessDashboard] Failed to load location-based summary", error);
+      setToast({
+        msg: "Unable to use current location for business summary. Please allow location access.",
+        error: true,
+      });
+    }
   }
 
   async function pingApi() {
@@ -34,7 +81,7 @@ export function BusinessDashboard() {
       setToast({ msg: `API: ${data.status} · ${data.service}`, error: false });
     } catch {
       setToast({
-        msg: "Could not reach Python API. Start backend on port 8000.",
+        msg: "Could not reach Next API route.",
         error: true,
       });
     }
@@ -66,6 +113,10 @@ export function BusinessDashboard() {
       window.alert("Location captured for downstream models (demo).");
     }
   }
+
+  useEffect(() => {
+    void loadBusinessSummary();
+  }, []);
 
   return (
     <>
@@ -113,7 +164,10 @@ export function BusinessDashboard() {
               </div>
               <div className="toolbar">
                 <button className="btn btn-secondary btn-sm" type="button" onClick={pingApi}>
-                  Check Python API
+                  Check API
+                </button>
+                <button className="btn btn-secondary btn-sm" type="button" onClick={loadBusinessSummary}>
+                  Refresh current location
                 </button>
                 <button className="btn btn-secondary btn-sm" type="button" onClick={signOut}>
                   Sign out
@@ -138,30 +192,30 @@ export function BusinessDashboard() {
                 <div className="metric-grid">
                   <article className="metric-card">
                     <div className="metric-label">Risk tier</div>
-                    <div className="metric-value">Critical</div>
+                    <div className="metric-value">{metrics.risk_tier}</div>
                     <div className="metric-bar">
                       <span className="bar-red" style={{ width: "92%" }} />
                     </div>
                   </article>
                   <article className="metric-card">
                     <div className="metric-label">Properties at risk %</div>
-                    <div className="metric-value">42.5%</div>
+                    <div className="metric-value">{metrics.properties_at_risk_pct.toFixed(1)}%</div>
                     <div className="metric-bar">
-                      <span className="bar-green" style={{ width: "42.5%" }} />
+                      <span className="bar-green" style={{ width: `${metrics.properties_at_risk_pct}%` }} />
                     </div>
                   </article>
                   <article className="metric-card">
                     <div className="metric-label">Flood zone %</div>
-                    <div className="metric-value">18.2%</div>
+                    <div className="metric-value">{metrics.flood_zone_pct.toFixed(1)}%</div>
                     <div className="metric-bar">
-                      <span className="bar-green" style={{ width: "18.2%" }} />
+                      <span className="bar-green" style={{ width: `${metrics.flood_zone_pct}%` }} />
                     </div>
                   </article>
                   <article className="metric-card">
                     <div className="metric-label">Infra stress score</div>
-                    <div className="metric-value">7.8/10</div>
+                    <div className="metric-value">{metrics.infra_stress_score.toFixed(1)}/10</div>
                     <div className="metric-bar">
-                      <span className="bar-red" style={{ width: "78%" }} />
+                      <span className="bar-red" style={{ width: `${Math.max(0, Math.min(100, metrics.infra_stress_score * 10))}%` }} />
                     </div>
                   </article>
                 </div>
@@ -171,11 +225,11 @@ export function BusinessDashboard() {
                 <h2 className="card-title">Insurance Market Signals</h2>
                 <div className="insurance-row">
                   <span>5-year projected rate increase</span>
-                  <span className="text-red">+114%</span>
+                  <span className="text-red">+{metrics.rate_increase_5y_pct}%</span>
                 </div>
                 <div className="insurance-row">
                   <span>Carriers reducing exposure</span>
-                  <span>12 of 18</span>
+                  <span>{metrics.carriers_reducing.count} of {metrics.carriers_reducing.of}</span>
                 </div>
                 <div style={{ margin: "12px 0" }}>
                   <span className="badge badge-danger">Elevated concern</span>
