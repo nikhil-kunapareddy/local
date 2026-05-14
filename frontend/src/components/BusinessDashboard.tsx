@@ -20,6 +20,7 @@ export function BusinessDashboard() {
   const router = useRouter();
   const username = getSession()?.username ?? "";
   const [toast, setToast] = useState<{ msg: string; error: boolean } | null>(null);
+  const [manualLocation, setManualLocation] = useState("");
   const [metrics, setMetrics] = useState({
     risk_tier: "Critical",
     properties_at_risk_pct: 42.5,
@@ -53,17 +54,23 @@ export function BusinessDashboard() {
     });
   }
 
-  async function loadBusinessSummary() {
+  async function loadBusinessSummary(lat?: number, lng?: number) {
     try {
-      const { lat, lng } = await getCurrentLocation();
-      const url = `${getApiBase()}/api/summary/business?lat=${lat}&lng=${lng}`;
-      console.log("[BusinessDashboard] Querying summary", { lat, lng, url });
+      let resolvedLat = lat;
+      let resolvedLng = lng;
+      if (resolvedLat == null || resolvedLng == null) {
+        const current = await getCurrentLocation();
+        resolvedLat = current.lat;
+        resolvedLng = current.lng;
+      }
+      const url = `${getApiBase()}/api/summary/business?lat=${resolvedLat}&lng=${resolvedLng}`;
+      console.log("[BusinessDashboard] Querying summary", { lat: resolvedLat, lng: resolvedLng, url });
       const res = await fetch(url);
       if (!res.ok) throw new Error(String(res.status));
       const data = (await res.json()) as typeof metrics;
       console.log("[BusinessDashboard] Summary response", data);
       setMetrics(data);
-      setToast({ msg: `Loaded business summary for ${lat.toFixed(4)}, ${lng.toFixed(4)}.`, error: false });
+      setToast({ msg: `Loaded business summary for ${resolvedLat.toFixed(4)}, ${resolvedLng.toFixed(4)}.`, error: false });
     } catch (error) {
       console.error("[BusinessDashboard] Failed to load location-based summary", error);
       setToast({
@@ -104,13 +111,24 @@ export function BusinessDashboard() {
     window.alert(`Report generation queued${suffix} (demo).`);
   }
 
-  function generateLocation() {
-    const input = document.getElementById("asset-location") as HTMLInputElement | null;
-    if (input && !input.value.trim()) {
-      input.focus();
-      input.placeholder = "Add a county or city to personalize the narrative.";
-    } else {
-      window.alert("Location captured for downstream models (demo).");
+  async function generateLocation() {
+    const input = manualLocation.trim();
+    if (!input) {
+      setToast({ msg: "Enter a city name or ZIP code.", error: true });
+      return;
+    }
+    try {
+      const geocodeRes = await fetch(`${getApiBase()}/api/geocode?q=${encodeURIComponent(input)}`);
+      if (!geocodeRes.ok) throw new Error(String(geocodeRes.status));
+      const geo = (await geocodeRes.json()) as { lat: number; lng: number; matchedAddress?: string };
+      console.log("[BusinessDashboard] Geocode response", geo);
+      await loadBusinessSummary(geo.lat, geo.lng);
+      if (geo.matchedAddress) {
+        setToast({ msg: `Loaded business summary for ${geo.matchedAddress}.`, error: false });
+      }
+    } catch (error) {
+      console.error("[BusinessDashboard] Manual location lookup failed", error);
+      setToast({ msg: "Could not resolve that city/ZIP. Try another location.", error: true });
     }
   }
 
@@ -156,7 +174,9 @@ export function BusinessDashboard() {
                   className="input"
                   id="asset-location"
                   type="text"
-                  placeholder="e.g. Suffolk County, MA"
+                  placeholder="Enter city or ZIP code (e.g. Miami or 33101)"
+                  value={manualLocation}
+                  onChange={(e) => setManualLocation(e.target.value)}
                 />
                 <button className="btn btn-primary" type="button" onClick={generateLocation}>
                   Generate
@@ -166,7 +186,13 @@ export function BusinessDashboard() {
                 <button className="btn btn-secondary btn-sm" type="button" onClick={pingApi}>
                   Check API
                 </button>
-                <button className="btn btn-secondary btn-sm" type="button" onClick={loadBusinessSummary}>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  type="button"
+                  onClick={() => {
+                    void loadBusinessSummary();
+                  }}
+                >
                   Refresh current location
                 </button>
                 <button className="btn btn-secondary btn-sm" type="button" onClick={signOut}>

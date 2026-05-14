@@ -16,6 +16,7 @@ export function ConsumerDashboard() {
   const [composite, setComposite] = useState(74);
   const [donutBg, setDonutBg] = useState(DEFAULT_GRADIENT);
   const [toast, setToast] = useState<{ msg: string; error: boolean } | null>(null);
+  const [manualLocation, setManualLocation] = useState("");
 
   function signOut() {
     clearSession();
@@ -43,14 +44,18 @@ export function ConsumerDashboard() {
     });
   }
 
-  async function loadSummary() {
+  async function loadSummary(lat?: number, lng?: number) {
     try {
-      const current = await getCurrentLocation();
-      const lat = current.lat;
-      const lng = current.lng;
+      let resolvedLat = lat;
+      let resolvedLng = lng;
+      if (resolvedLat == null || resolvedLng == null) {
+        const current = await getCurrentLocation();
+        resolvedLat = current.lat;
+        resolvedLng = current.lng;
+      }
 
-      const url = `${getApiBase()}/api/summary/consumer?lat=${lat}&lng=${lng}`;
-      console.log("[ConsumerDashboard] Querying summary", { lat, lng, url });
+      const url = `${getApiBase()}/api/summary/consumer?lat=${resolvedLat}&lng=${resolvedLng}`;
+      console.log("[ConsumerDashboard] Querying summary", { lat: resolvedLat, lng: resolvedLng, url });
 
       const res = await fetch(url);
       if (!res.ok) throw new Error(String(res.status));
@@ -69,7 +74,7 @@ export function ConsumerDashboard() {
       setDonutBg(
         `conic-gradient(var(--green-deep) 0deg ${f}deg, var(--red-alert) ${startA}deg ${startA + a}deg, #c4c4bc ${startO}deg 360deg)`,
       );
-      setToast({ msg: `Loaded summary for ${lat.toFixed(4)}, ${lng.toFixed(4)}.`, error: false });
+      setToast({ msg: `Loaded summary for ${resolvedLat.toFixed(4)}, ${resolvedLng.toFixed(4)}.`, error: false });
     } catch (error) {
       console.error("[ConsumerDashboard] Failed to load location-based summary", error);
       setToast({
@@ -79,20 +84,44 @@ export function ConsumerDashboard() {
     }
   }
 
+  async function analyze() {
+    const input = manualLocation.trim();
+    if (!input) {
+      setToast({ msg: "Enter a city name or ZIP code.", error: true });
+      return;
+    }
+    try {
+      const geocodeRes = await fetch(`${getApiBase()}/api/geocode?q=${encodeURIComponent(input)}`);
+      if (!geocodeRes.ok) {
+        let detail = String(geocodeRes.status);
+        try {
+          const err = (await geocodeRes.json()) as { detail?: string; error?: string };
+          detail = err.detail || err.error || detail;
+        } catch {
+          // no-op
+        }
+        throw new Error(detail);
+      }
+      const geo = (await geocodeRes.json()) as { lat: number; lng: number; matchedAddress?: string };
+      console.log("[ConsumerDashboard] Geocode response", geo);
+      await loadSummary(geo.lat, geo.lng);
+      if (geo.matchedAddress) {
+        setToast({ msg: `Loaded summary for ${geo.matchedAddress}.`, error: false });
+      }
+    } catch (error) {
+      console.error("[ConsumerDashboard] Manual location lookup failed", error);
+      setToast({
+        msg: `Could not resolve that city/ZIP. ${
+          error instanceof Error ? error.message : "Try another location."
+        }`,
+        error: true,
+      });
+    }
+  }
+
   useEffect(() => {
     void loadSummary();
   }, []);
-
-  function analyze() {
-    const input = document.getElementById("asset-address") as HTMLInputElement | null;
-    if (input) {
-      input.animate(
-        [{ boxShadow: "0 0 0 0 rgba(45,74,30,0.4)" }, { boxShadow: "0 0 0 6px rgba(45,74,30,0)" }],
-        { duration: 700 },
-      );
-    }
-    window.alert("Analyze pipeline invoked (demo).");
-  }
 
   return (
     <>
@@ -152,14 +181,22 @@ export function ConsumerDashboard() {
                   className="input"
                   id="asset-address"
                   type="text"
-                  placeholder="Enter street address or coordinates…"
+                  placeholder="Enter city or ZIP code (e.g. Boston or 02108)"
+                  value={manualLocation}
+                  onChange={(e) => setManualLocation(e.target.value)}
                 />
                 <button className="btn btn-primary" type="button" onClick={analyze}>
                   Analyze
                 </button>
               </div>
               <div className="toolbar">
-                <button className="btn btn-secondary btn-sm" type="button" onClick={loadSummary}>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  type="button"
+                  onClick={() => {
+                    void loadSummary();
+                  }}
+                >
                   Load summary (current location)
                 </button>
                 <button className="btn btn-secondary btn-sm" type="button" onClick={signOut}>
