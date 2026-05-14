@@ -1,12 +1,14 @@
 # LoCal
 
-> Hackathon submission — climate risk intelligence for cities, insurers, and residents, in one platform.
+Hackathon submission — climate risk intelligence for cities, insurers, and residents, in one platform.
 
 ## Demo
 
-<video src="asset/demo.mp4" controls width="100%"></video>
+<video src="https://github.com/nikhil-kunapareddy/local/raw/main/asset/demo.mp4" controls width="100%" muted playsinline>
+  Your browser does not support inline video playback.
+</video>
 
-If the video does not play inline on your viewer, open [`asset/demo.mp4`](asset/demo.mp4) directly.
+<sub>If the inline player above does not load, <a href="https://github.com/nikhil-kunapareddy/local/raw/main/asset/demo.mp4">watch the raw file</a> or browse <a href="asset/demo.mp4">asset/demo.mp4</a>.</sub>
 
 ## Problem
 
