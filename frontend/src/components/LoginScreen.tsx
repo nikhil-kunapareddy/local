@@ -31,7 +31,7 @@ export function LoginScreen() {
       <div className="login-page">
         <div className="login-card">
           <div className="login-brand">
-            <div className="brand-serif">ClimateHome</div>
+            <div className="brand-serif">LoCal</div>
             <div className="brand-sub">Intelligence Platform</div>
           </div>
           <p className="page-subtitle" style={{ textAlign: "center", marginBottom: 18 }}>

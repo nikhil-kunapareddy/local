@@ -134,13 +134,13 @@ export function BusinessDashboard() {
         </aside>
         <div className="main-area" style={{ flex: 1 }}>
           <div className="top-bar">
-            <span>Climate Risk Intelligence</span>
+            <span>LoCal</span>
             <div className="avatar-pill" title={username} />
           </div>
           <DashboardViewTabs />
           <div className="main-panel" id="business-panel">
             <header className="page-header">
-              <h1 className="page-title">Climate Risk Intelligence Platform</h1>
+              <h1 className="page-title">LoCal Intelligence Platform</h1>
               <p className="page-subtitle">
                 Aggregate exposure and infrastructure stress signals for institutional stakeholders and
                 municipal planning.

@@ -99,7 +99,7 @@ export function ConsumerDashboard() {
       <div className="app-shell">
         <aside className="sidebar">
           <div>
-            <div className="brand-serif">ClimateHome</div>
+            <div className="brand-serif">LoCal</div>
             <div className="brand-sub">Intelligence Platform</div>
           </div>
           <nav>
@@ -131,13 +131,13 @@ export function ConsumerDashboard() {
         </aside>
         <div className="main-area" style={{ flex: 1 }}>
           <div className="top-bar">
-            <span>Climate Risk Intelligence</span>
+            <span>LoCal</span>
             <div className="avatar-pill" title={username} />
           </div>
           <DashboardViewTabs />
           <div className="main-panel">
             <header className="page-header">
-              <h1 className="page-title">Climate Risk Intelligence Platform</h1>
+              <h1 className="page-title">LoCal Intelligence Platform</h1>
               <p className="page-subtitle">
                 Personal risk exposure for residential and commercial assets.
               </p>

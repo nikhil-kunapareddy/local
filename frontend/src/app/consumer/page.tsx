@@ -3,7 +3,7 @@ import { AuthGate } from "@/components/AuthGate";
 import { ConsumerDashboard } from "@/components/ConsumerDashboard";
 
 export const metadata: Metadata = {
-  title: "Consumer dashboard · ClimateHome",
+  title: "Consumer dashboard · LoCal",
 };
 
 export default function ConsumerPage() {

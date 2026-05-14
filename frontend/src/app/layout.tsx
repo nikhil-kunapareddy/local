@@ -16,8 +16,8 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Climate Risk Intelligence",
-  description: "Climate risk dashboards for institutional and consumer use (demo)",
+  title: "LoCal",
+  description: "LoCal climate risk dashboards for institutional and consumer use (demo)",
 };
 
 export default function RootLayout({
